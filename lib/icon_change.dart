@@ -7,6 +7,7 @@ import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dynamic_icon_plus/flutter_dynamic_icon_plus.dart';
+ import 'package:flutter/services.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Icon model
@@ -117,41 +118,32 @@ class _DynamicIconPageState extends State<DynamicIconPage> {
 
   // ── Change icon ───────────────────────────────────────────────────────────
 
-  Future<void> _changeIcon(AppIconOption option) async {
-    if (!_isSupported) {
-      _showStatus(
-        '❌ Dynamic icons not supported on this device',
-        isError: true,
-      );
-      return;
-    }
 
-    if (_currentIconName == option.iconName) {
-      _showStatus('Already using "${option.label}" icon', isError: false);
-      return;
-    }
+static const _channel = MethodChannel('com.example.liguid_glass_effect/icon');
 
-    setState(() => _isLoading = true);
-
-    try {
-      // ✅ Correct v1.4.0 API — named parameter iconName:
-      await FlutterDynamicIconPlus.setAlternateIconName(
-        iconName: option.iconName, // null = restore default
-      );
-
-      final newCurrent = await FlutterDynamicIconPlus.alternateIconName;
-      setState(() {
-        _currentIconName = newCurrent;
-        _isLoading = false;
-      });
-
-      _showStatus('✅ Icon changed to "${option.label}"', isError: false);
-    } catch (e) {
-      setState(() => _isLoading = false);
-      _showStatus('❌ Failed: ${e.toString()}', isError: true);
-      debugPrint('Dynamic icon error: $e');
-    }
+Future<void> _changeIcon(AppIconOption option) async {
+  if (_currentIconName == option.iconName) {
+    _showStatus('Already using "${option.label}" icon', isError: false);
+    return;
   }
+
+  setState(() => _isLoading = true);
+
+  try {
+    final iconName = option.iconName ?? 'DEFAULT';
+    await _channel.invokeMethod('setIcon', {'iconName': iconName});
+    
+    setState(() {
+      _currentIconName = option.iconName;
+      _isLoading = false;
+    });
+    _showStatus('✅ Icon changed to "${option.label}" — check launcher!', isError: false);
+  } catch (e) {
+    setState(() => _isLoading = false);
+    _showStatus('❌ Failed: $e', isError: true);
+    debugPrint('Icon error: $e');
+  }
+}
 
   // ── ICON OPTIONS — iconName must match alias suffix exactly ──────────────────
   // Manifest alias          iconName in Dart
